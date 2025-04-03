@@ -1,3 +1,4 @@
+// CategoryPage.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,7 +20,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Modal } from "@/components/ui/modal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCategories, createCategory, updateCategory, deleteCategory } from "@/lib/apiservice";
+import SocialIcon from "@/components/SocialIcon"; // Yangi komponent
 
 interface Category {
   id: number;
@@ -28,6 +31,7 @@ interface Category {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  icon?: string; // Yangi xususiyat
 }
 
 interface PaginatedResponse<T> {
@@ -36,6 +40,21 @@ interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
+
+// Ijtimoiy tarmoqlar ro'yxati
+const socialPlatforms = [
+  "Instagram",
+  "Facebook",
+  "Twitter",
+  "Spotify",
+  "TikTok",
+  "LinkedIn",
+  "Google",
+  "Telegram",
+  "Discord",
+  "Snapchat",
+  "Twitch",
+];
 
 export default function CategoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -46,7 +65,6 @@ export default function CategoryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Paginatsiya uchun state'lar
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   const itemsPerPage = 10;
@@ -55,25 +73,26 @@ export default function CategoryPage() {
     name: "",
     description: "",
     is_active: true,
+    icon: "", // Yangi xususiyat
   });
 
   const [editCategory, setEditCategory] = useState<Category | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // API dan kategoriyalarni olish (paginatsiya bilan)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setLoading(true);
         const offset = (currentPage - 1) * itemsPerPage;
-        const data: PaginatedResponse<Category> = await getCategories(itemsPerPage, offset); // limit va offset qo'shildi
+        const data: PaginatedResponse<Category> = await getCategories(itemsPerPage, offset);
         const normalizedData = data.results.map((cat) => ({
           ...cat,
           description: cat.description ?? "",
+          icon: cat.icon ?? "", // Ikonka bo'lmasa bo'sh qator
         }));
         setCategories(normalizedData);
-        setTotalCount(data.count); // Umumiy kategoriyalar sonini saqlash
+        setTotalCount(data.count);
       } catch (err) {
         setError((err as { message?: string }).message || "Kategoriyalarni yuklashda xato yuz berdi");
       } finally {
@@ -82,7 +101,7 @@ export default function CategoryPage() {
     };
 
     fetchCategories();
-  }, [currentPage]); // currentPage o'zgarganda qayta yuklanadi
+  }, [currentPage]);
 
   const handleSort = (field: keyof Category) => {
     if (sortField === field) {
@@ -109,10 +128,10 @@ export default function CategoryPage() {
   const handleAddCategory = async () => {
     try {
       const createdCategory = await createCategory(newCategory);
-      setCategories([...categories, { ...createdCategory, description: createdCategory.description ?? "" }]);
-      setNewCategory({ name: "", description: "", is_active: true });
+      setCategories([...categories, { ...createdCategory, description: createdCategory.description ?? "",  }]);
+      setNewCategory({ name: "", description: "", is_active: true});
       setAddDialogOpen(false);
-      setCurrentPage(1); // Yangi kategoriya qo'shilganda birinchi sahifaga qaytish
+      setCurrentPage(1);
     } catch (err) {
       setError((err as { message?: string }).message || "Kategoriya qo‘shishda xato yuz berdi");
     }
@@ -125,7 +144,7 @@ export default function CategoryPage() {
       setCategories(
         categories.map((category) =>
           category.id === updatedCategory.id
-            ? { ...updatedCategory, description: updatedCategory.description ?? "" }
+            ? { ...updatedCategory, description: updatedCategory.description ?? "", icon: updatedCategory.icon ?? "" }
             : category
         )
       );
@@ -143,7 +162,6 @@ export default function CategoryPage() {
       setCategories(categories.filter((category) => category.id !== categoryToDelete));
       setCategoryToDelete(null);
       setDeleteDialogOpen(false);
-      // Agar joriy sahifada elementlar kamaysa, avvalgi sahifaga o'tish
       if (categories.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
       }
@@ -185,10 +203,6 @@ export default function CategoryPage() {
             <Plus className="mr-2 h-4 w-4" />
             Add Category
           </Button>
-          {/* <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button> */}
         </div>
       </div>
 
@@ -263,7 +277,12 @@ export default function CategoryPage() {
               <TableBody>
                 {sortedCategories.map((category) => (
                   <TableRow key={category.id}>
-                    <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <SocialIcon iconName={category.icon} className="h-5 w-5" />
+                        <span>{category.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{category.description || "No description"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -373,7 +392,7 @@ export default function CategoryPage() {
           </>
         }
       >
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 p-4">
           <div className="grid gap-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -381,6 +400,27 @@ export default function CategoryPage() {
               value={newCategory.name}
               onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
             />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="icon">Icon</Label>
+            <Select
+              value={newCategory.icon}
+              onValueChange={(value) => setNewCategory({ ...newCategory, icon: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select an icon" />
+              </SelectTrigger>
+              <SelectContent>
+                {socialPlatforms.map((platform) => (
+                  <SelectItem key={platform} value={platform.toLowerCase()}>
+                    <div className="flex items-center gap-2">
+                      <SocialIcon iconName={platform.toLowerCase()} className="h-5 w-5" />
+                      <span>{platform}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="description">Description</Label>
@@ -417,7 +457,7 @@ export default function CategoryPage() {
         }
       >
         {editCategory && (
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 p-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-name">Name</Label>
               <Input
@@ -425,6 +465,27 @@ export default function CategoryPage() {
                 value={editCategory.name}
                 onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-icon">Icon</Label>
+              <Select
+                value={editCategory.icon}
+                onValueChange={(value) => setEditCategory({ ...editCategory, icon: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an icon" />
+                </SelectTrigger>
+                <SelectContent>
+                  {socialPlatforms.map((platform) => (
+                    <SelectItem key={platform} value={platform.toLowerCase()}>
+                      <div className="flex items-center gap-2">
+                        <SocialIcon iconName={platform.toLowerCase()} className="h-5 w-5" />
+                        <span>{platform}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-description">Description</Label>

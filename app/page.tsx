@@ -82,12 +82,7 @@ export default function LandingPage() {
                     {loading ? "Loading..." : "Login"}
                   </Button>
                 </form>
-                <Link href="/dashboard">
-                  <Button variant="outline" className="w-full ">
-                    Go to Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+          
               </div>
             </div>
           </div>
