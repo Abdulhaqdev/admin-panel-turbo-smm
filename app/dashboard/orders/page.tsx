@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Download, Search, Filter, FileText, FileSpreadsheet, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -19,16 +20,33 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getOrders, getServices } from "@/lib/apiservice";
+import { ChevronDown, ChevronUp, Eye, Filter, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Order {
   id: number;
-  service: number; // Service ID
+  service: Service; // Service endi obyekt
   price: number;
   url: string;
   status: string;
-  user: number; // User ID
-  quantity: number; // Yangi qo‘shilgan maydon
+  user: number;
+  quantity: number;
   created_at: string;
   updated_at: string;
 }
@@ -61,7 +79,9 @@ export default function OrdersPage() {
   const [sortField, setSortField] = useState<keyof Order>("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Completed" | "Cancelled">("all");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "Pending" | "Completed" | "Cancelled"
+  >("all");
   const [filterDialogOpen, setFilterDialogOpen] = useState<boolean>(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState<boolean>(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -78,15 +98,27 @@ export default function OrdersPage() {
       try {
         setLoading(true);
         const offset = (currentPage - 1) * itemsPerPage;
+
         const [ordersData, servicesData] = await Promise.all([
           getOrders(itemsPerPage, offset),
-          getServices(), // Bu hali pagination qo‘shilmagan, agar kerak bo‘lsa o‘zgartirish mumkin
+          getServices(itemsPerPage, 0),
         ]);
-        setOrders(ordersData.results);
-        setTotalCount(ordersData.count);
-        setServices(servicesData.results || servicesData); // Agar `getServices` PaginatedResponse qaytarsa
+
+        const mappedOrders = ordersData.results.map((order: any) => ({
+          ...order,
+          service: services.find((s) => s.id === order.service) || { id: order.service, name: "Unknown Service" },
+        }));
+        setOrders(mappedOrders || []);
+        setTotalCount(ordersData.count || 0);
+
+        console.log("Services Data:", servicesData.results);
+        const fetchedServices = servicesData.results || servicesData;
+        setServices(Array.isArray(fetchedServices) ? fetchedServices : []);
       } catch (err) {
-        setError((err as { message?: string }).message || "Ma'lumotlarni yuklashda xato yuz berdi");
+        setError(
+          (err as { message?: string }).message ||
+            "Ma'lumotlarni yuklashda xato yuz berdi"
+        );
       } finally {
         setLoading(false);
       }
@@ -95,15 +127,26 @@ export default function OrdersPage() {
     fetchData();
   }, [currentPage]);
 
-  const mapStatus = (apiStatus: string): "Pending" | "Completed" | "Cancelled" => {
-    if (apiStatus === "true") return "Completed";
-    if (apiStatus === "pending") return "Pending";
-    return "Cancelled";
+  const mapStatus = (
+    apiStatus: string
+  ): "Pending" | "Completed" | "Cancelled" => {
+    switch (apiStatus.toLowerCase()) {
+      case "true":
+      case "completed":
+        return "Completed";
+      case "pending":
+        return "Pending";
+      case "cancelled":
+      case "false":
+        return "Cancelled";
+      default:
+        return "Pending";
+    }
   };
 
-  const getServiceName = (serviceId: number): string => {
-    const service = services.find((s) => s.id === serviceId);
-    return service ? service.name : `Service ${serviceId}`;
+  // `service` obyektidan nomni olish
+  const getServiceName = (service: Service): string => {
+    return service?.name || "Unknown Service";
   };
 
   const handleSort = (field: keyof Order) => {
@@ -124,7 +167,9 @@ export default function OrdersPage() {
       searchQuery &&
       !order.url.toLowerCase().includes(searchQuery.toLowerCase()) &&
       !order.id.toString().includes(searchQuery) &&
-      !getServiceName(order.service).toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !getServiceName(order.service)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) &&
       !order.quantity.toString().includes(searchQuery)
     ) {
       return false;
@@ -134,30 +179,26 @@ export default function OrdersPage() {
 
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     if (sortField === "price" || sortField === "quantity") {
-      return sortDirection === "asc" ? a[sortField] - b[sortField] : b[sortField] - a[sortField];
+      return sortDirection === "asc"
+        ? a[sortField] - b[sortField]
+        : b[sortField] - a[sortField];
     }
     if (sortField === "service") {
       const aName = getServiceName(a.service);
       const bName = getServiceName(b.service);
-      return sortDirection === "asc" ? aName.localeCompare(bName) : bName.localeCompare(aName);
+      return sortDirection === "asc"
+        ? aName.localeCompare(bName)
+        : bName.localeCompare(aName);
+    }
+    if (sortField === "created_at" || sortField === "updated_at") {
+      return sortDirection === "asc"
+        ? new Date(a[sortField]).getTime() - new Date(b[sortField]).getTime()
+        : new Date(b[sortField]).getTime() - new Date(a[sortField]).getTime();
     }
     if (a[sortField] < b[sortField]) return sortDirection === "asc" ? -1 : 1;
     if (a[sortField] > b[sortField]) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
-
-  const handleExportCSV = () => {
-    alert("Exporting orders to CSV...");
-  };
-
-  const handleExportPDF = () => {
-    alert("Exporting orders to PDF...");
-  };
-
-  const resetFilters = () => {
-    setFilterStatus("all");
-    setSearchQuery("");
-  };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -184,13 +225,9 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-10">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <div className="flex items-center gap-2">
-          {/* Export options */}
-
-        </div>
       </div>
 
       <Card>
@@ -210,10 +247,15 @@ export default function OrdersPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Button variant="outline" onClick={() => setFilterDialogOpen(true)}>
+              <Button
+                variant="outline"
+                onClick={() => setFilterDialogOpen(true)}
+              >
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
-                {filterStatus !== "all" && <span className="ml-1 rounded-full bg-primary w-2 h-2"></span>}
+                {filterStatus !== "all" && (
+                  <span className="ml-1 rounded-full bg-primary w-2 h-2"></span>
+                )}
               </Button>
             </div>
           </div>
@@ -222,7 +264,10 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("id")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("id")}
+                  >
                     <div className="flex items-center gap-1">
                       Order ID
                       {sortField === "id" &&
@@ -233,7 +278,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("service")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("service")}
+                  >
                     <div className="flex items-center gap-1">
                       Service
                       {sortField === "service" &&
@@ -244,7 +292,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("price")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("price")}
+                  >
                     <div className="flex items-center gap-1">
                       Price
                       {sortField === "price" &&
@@ -255,7 +306,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("quantity")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("quantity")}
+                  >
                     <div className="flex items-center gap-1">
                       Quantity
                       {sortField === "quantity" &&
@@ -266,7 +320,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("url")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("url")}
+                  >
                     <div className="flex items-center gap-1">
                       URL
                       {sortField === "url" &&
@@ -277,7 +334,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("status")}
+                  >
                     <div className="flex items-center gap-1">
                       Status
                       {sortField === "status" &&
@@ -288,7 +348,10 @@ export default function OrdersPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("created_at")}>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => handleSort("created_at")}
+                  >
                     <div className="flex items-center gap-1">
                       Created At
                       {sortField === "created_at" &&
@@ -314,9 +377,11 @@ export default function OrdersPage() {
                   >
                     <TableCell>{order.id}</TableCell>
                     <TableCell>{getServiceName(order.service)}</TableCell>
-                    <TableCell>${order.price.toFixed(2)}</TableCell>
+                    <TableCell>{order.price}</TableCell>
                     <TableCell>{order.quantity}</TableCell>
-                    <TableCell className="max-w-xs truncate">{order.url}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {order.url}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div
@@ -331,7 +396,9 @@ export default function OrdersPage() {
                         <span>{mapStatus(order.status)}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -350,7 +417,10 @@ export default function OrdersPage() {
                 ))}
                 {sortedOrders.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell
+                      colSpan={8}
+                      className="text-center py-8 text-muted-foreground"
+                    >
                       No orders found. Try adjusting your filters.
                     </TableCell>
                   </TableRow>
@@ -369,24 +439,32 @@ export default function OrdersPage() {
                       e.preventDefault();
                       handlePageChange(currentPage - 1);
                     }}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                    }
                   />
                 </PaginationItem>
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      href="#"
-                      isActive={currentPage === page}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handlePageChange(page);
-                      }}
-                    >
-                      {page}
-                    </PaginationLink>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                  (page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        isActive={currentPage === page}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(page);
+                        }}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                {totalPages > 5 && (
+                  <PaginationItem>
+                    <PaginationEllipsis />
                   </PaginationItem>
-                ))}
-                {totalPages > 5 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+                )}
                 <PaginationItem>
                   <PaginationNext
                     href="#"
@@ -394,7 +472,11 @@ export default function OrdersPage() {
                       e.preventDefault();
                       handlePageChange(currentPage + 1);
                     }}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      currentPage === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -411,10 +493,12 @@ export default function OrdersPage() {
         description="Apply filters to narrow down the orders list."
         footer={
           <>
-            <Button variant="outline" onClick={resetFilters}>
+            <Button variant="outline" onClick={() => setFilterStatus("all")}>
               Reset Filters
             </Button>
-            <Button onClick={() => setFilterDialogOpen(false)}>Apply Filters</Button>
+            <Button onClick={() => setFilterDialogOpen(false)}>
+              Apply Filters
+            </Button>
           </>
         }
       >
@@ -424,7 +508,9 @@ export default function OrdersPage() {
             <Select
               value={filterStatus}
               onValueChange={(value) =>
-                setFilterStatus(value as "all" | "Pending" | "Completed" | "Cancelled")
+                setFilterStatus(
+                  value as "all" | "Pending" | "Completed" | "Cancelled"
+                )
               }
             >
               <SelectTrigger id="filter-status">
@@ -453,27 +539,37 @@ export default function OrdersPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Order ID</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Order ID
+                </h3>
                 <p className="text-sm">{selectedOrder.id}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Service</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Service
+                </h3>
                 <p className="text-sm">{getServiceName(selectedOrder.service)}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Price</h3>
-                <p className="text-sm">${selectedOrder.price.toFixed(2)}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Price
+                </h3>
+                <p className="text-sm">{selectedOrder.price}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Quantity</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Quantity
+                </h3>
                 <p className="text-sm">{selectedOrder.quantity}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Status
+                </h3>
                 <div className="flex items-center gap-2 mt-1">
                   <div
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -488,18 +584,28 @@ export default function OrdersPage() {
                 </div>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">User ID</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  User ID
+                </h3>
                 <p className="text-sm">{selectedOrder.user}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
-                <p className="text-sm">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Created At
+                </h3>
+                <p className="text-sm">
+                  {new Date(selectedOrder.created_at).toLocaleString()}
+                </p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Updated At</h3>
-                <p className="text-sm">{new Date(selectedOrder.updated_at).toLocaleString()}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Updated At
+                </h3>
+                <p className="text-sm">
+                  {new Date(selectedOrder.updated_at).toLocaleString()}
+                </p>
               </div>
             </div>
             <div>
