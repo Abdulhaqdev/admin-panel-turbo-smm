@@ -3,6 +3,7 @@ import axios, { AxiosResponse, AxiosError } from "axios";
 // -------------------- AUTHENTICATION RELATED -------------------- //
 interface TokenResponse {
   access: string;
+  admin: boolean;
   refresh: string;
   user_id: number;
 }

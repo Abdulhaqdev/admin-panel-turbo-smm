@@ -26,25 +26,29 @@ export default function LandingPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
+  
     try {
       const credentials = { username, password };
       const data = await login(credentials);
-
-      // Tokenlarni cookie da saqlash
-      document.cookie = `access_token=${data.access}; path=/; max-age=3600`; // 1 soat
-      document.cookie = `refresh_token=${data.refresh}; path=/; max-age=604800`; // 7 kun
-      document.cookie = `user_id=${data.user_id}; path=/; max-age=604800`;
-
-      // Dashboardga yo'naltirish
-      router.push("/dashboard");
+      console.log(data);
+  
+      if (data.admin) {
+        // Cookie'ga saqlash
+        document.cookie = `access_token=${data.access}; path=/; max-age=3600`;
+        document.cookie = `refresh_token=${data.refresh}; path=/; max-age=604800`;
+        document.cookie = `user_id=${data.user_id}; path=/; max-age=604800`;
+  
+        router.push("/dashboard"); // ✅ faqat admin bo‘lsa
+      } else {
+        setError("Faqat admin foydalanuvchilar kira oladi!");
+      }
     } catch (err) {
       setError((err as { message?: string }).message || "Login yoki parol xato!");
     } finally {
-      setLoading(false);
-      router.push('/dashboard')
+      setLoading(false); 
     }
   };
+  
 
   return (
     <div className="flex min-h-screen flex-col">
