@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Download, Search, Filter, FileText, FileSpreadsheet, ChevronDown, ChevronUp, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useState, useEffect } from "react";
+import { Download, Search, Filter, FileText, FileSpreadsheet, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -14,150 +14,172 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination"
+} from "@/components/ui/pagination";
+import { useToast } from "@/hooks/use-toast";
+import { getPayments } from "@/lib/apiservice";
+
+interface User {
+  id: number;
+  first_name: string;
+  last_name: string;
+  balance: string;
+  username: string;
+  email: string;
+  phone_number: string;
+  api_key: string;
+}
+
+interface PaymentType {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
 
 interface Payment {
-  id: number
-  orderId: number
-  amount: number
-  method: string
-  status: "Completed" | "Pending" | "Failed"
-  createdAt: string
+  id: number;
+  price: string;
+  user: User;
+  payment_type: PaymentType;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 }
 
 export default function PaymentPage() {
-  const [payments, setPayments] = useState<Payment[]>([
-    {
-      id: 1,
-      orderId: 1001,
-      amount: 59.99,
-      method: "Credit Card",
-      status: "Completed",
-      createdAt: "2023-06-15T10:30:00Z",
-    },
-    {
-      id: 2,
-      orderId: 1002,
-      amount: 29.99,
-      method: "PayPal",
-      status: "Pending",
-      createdAt: "2023-06-16T14:45:00Z",
-    },
-    {
-      id: 3,
-      orderId: 1003,
-      amount: 79.99,
-      method: "Bank Transfer",
-      status: "Failed",
-      createdAt: "2023-06-17T09:15:00Z",
-    },
-    {
-      id: 4,
-      orderId: 1004,
-      amount: 49.99,
-      method: "Credit Card",
-      status: "Completed",
-      createdAt: "2023-06-18T16:20:00Z",
-    },
-    {
-      id: 5,
-      orderId: 1005,
-      amount: 39.99,
-      method: "PayPal",
-      status: "Completed",
-      createdAt: "2023-06-19T11:05:00Z",
-    },
-  ])
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [sortField, setSortField] = useState<keyof Payment | "payment_type.name">("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [sortField, setSortField] = useState<keyof Payment>("createdAt")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState<Payment["status"] | "all">("all")
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false)
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const { toast } = useToast();
 
-  const handleSort = (field: keyof Payment) => {
+  useEffect(() => {
+    const fetchPayments = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await getPayments(itemsPerPage, (currentPage - 1) * itemsPerPage, "admin");
+        setPayments(response.results);
+        setTotalPages(Math.ceil(response.count / itemsPerPage));
+      } catch (err) {
+        const errorMessage = (err as { message?: string }).message || "Failed to fetch payments";
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, [currentPage]);
+
+  const handleSort = (field: keyof Payment | "payment_type.name") => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortField(field)
-      setSortDirection("asc")
+      setSortField(field);
+      setSortDirection("asc");
     }
-  }
+  };
 
   // Apply filters
   const filteredPayments = payments.filter((payment) => {
-    if (filterStatus !== "all" && payment.status !== filterStatus) {
-      return false
-    }
-
     if (
       searchQuery &&
-      !payment.orderId.toString().includes(searchQuery) &&
-      !payment.amount.toString().includes(searchQuery) &&
-      !payment.method.toLowerCase().includes(searchQuery.toLowerCase())
+      !payment.id.toString().includes(searchQuery) &&
+      !payment.price.includes(searchQuery) &&
+      !payment.payment_type.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !payment.user.username.toLowerCase().includes(searchQuery.toLowerCase())
     ) {
-      return false
+      return false;
     }
-
-    return true
-  })
+    return true;
+  });
 
   const sortedPayments = [...filteredPayments].sort((a, b) => {
-    if (a[sortField] < b[sortField]) return sortDirection === "asc" ? -1 : 1
-    if (a[sortField] > b[sortField]) return sortDirection === "asc" ? 1 : -1
-    return 0
-  })
+    let aValue: any = sortField === "payment_type.name" ? a.payment_type.name : a[sortField];
+    let bValue: any = sortField === "payment_type.name" ? b.payment_type.name : b[sortField];
 
-  const handleExportCSV = () => {
-    alert("Exporting payments to CSV...")
-  }
+    // Handle string vs number for price
+    if (sortField === "price") {
+      aValue = parseFloat(aValue);
+      bValue = parseFloat(bValue);
+    }
 
-  const handleExportPDF = () => {
-    alert("Exporting payments to PDF...")
-  }
+    if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+
 
   const resetFilters = () => {
-    setFilterStatus("all")
-    setSearchQuery("")
+    setSearchQuery("");
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col p-4 md:p-6">
+        <div className="mx-auto max-w-7xl flex items-center justify-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col p-4 md:p-6">
+        <div className="mx-auto max-w-7xl flex items-center justify-center min-h-[50vh]">
+          <p className="text-destructive">{error}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
-        <div className="flex items-center gap-2">
-          {/* <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportCSV}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPDF}>
-                <FileText className="mr-2 h-4 w-4" />
-                Export as PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu> */}
-        </div>
+        
       </div>
 
       <Card>
@@ -180,7 +202,7 @@ export default function PaymentPage() {
               <Button variant="outline" onClick={() => setFilterDialogOpen(true)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Filters
-                {filterStatus !== "all" && <span className="ml-1 rounded-full bg-primary w-2 h-2"></span>}
+                {searchQuery && <span className="ml-1 rounded-full bg-primary w-2 h-2"></span>}
               </Button>
             </div>
           </div>
@@ -189,10 +211,10 @@ export default function PaymentPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("orderId")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("id")}>
                     <div className="flex items-center gap-1">
-                      Order ID
-                      {sortField === "orderId" &&
+                      Payment ID
+                      {sortField === "id" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -200,10 +222,10 @@ export default function PaymentPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("amount")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("price")}>
                     <div className="flex items-center gap-1">
                       Amount
-                      {sortField === "amount" &&
+                      {sortField === "price" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -211,11 +233,21 @@ export default function PaymentPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("payment_type.name")}>
+                    <div className="flex items-center gap-1">
+                      Method
+                      {sortField === "payment_type.name" &&
+                        (sortDirection === "asc" ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        ))}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("is_active")}>
                     <div className="flex items-center gap-1">
                       Status
-                      {sortField === "status" &&
+                      {sortField === "is_active" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -223,10 +255,10 @@ export default function PaymentPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("createdAt")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("created_at")}>
                     <div className="flex items-center gap-1">
                       Date
-                      {sortField === "createdAt" &&
+                      {sortField === "created_at" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -243,36 +275,32 @@ export default function PaymentPage() {
                     key={payment.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => {
-                      setSelectedPayment(payment)
-                      setDetailDialogOpen(true)
+                      setSelectedPayment(payment);
+                      setDetailDialogOpen(true);
                     }}
                   >
-                    <TableCell>{payment.orderId}</TableCell>
-                    <TableCell>${payment.amount.toFixed(2)}</TableCell>
-                    <TableCell>{payment.method}</TableCell>
+                    <TableCell>{payment.id}</TableCell>
+                    <TableCell>UZS {payment.price}</TableCell>
+                    <TableCell>{payment.payment_type.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div
                           className={`h-2.5 w-2.5 rounded-full ${
-                            payment.status === "Completed"
-                              ? "bg-green-500"
-                              : payment.status === "Pending"
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
+                            payment.is_active ? "bg-green-500" : "bg-red-500"
                           }`}
                         />
-                        <span>{payment.status}</span>
+                        <span>{payment.is_active ? "Completed" : "Failed"}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedPayment(payment)
-                          setDetailDialogOpen(true)
+                          e.stopPropagation();
+                          setSelectedPayment(payment);
+                          setDetailDialogOpen(true);
                         }}
                       >
                         <Eye className="h-4 w-4" />
@@ -292,32 +320,61 @@ export default function PaymentPage() {
             </Table>
           </div>
 
-          <div className="mt-4">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#" isActive>
-                    1
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">2</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">3</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(currentPage - 1);
+                      }}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          href="#"
+                          isActive={currentPage === pageNum}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePageChange(pageNum);
+                          }}
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  {totalPages > 5 && <PaginationItem></PaginationItem>}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(currentPage + 1);
+                      }}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -330,21 +387,13 @@ export default function PaymentPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="filter-status">Status</Label>
-              <Select
-                value={filterStatus.toString()}
-                onValueChange={(value) => setFilterStatus(value === "all" ? "all" : (value as Payment["status"]))}
-              >
-                <SelectTrigger id="filter-status">
-                  <SelectValue placeholder="Select a status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="search-query">Search</Label>
+              <Input
+                id="search-query"
+                placeholder="Search by ID, amount, method, or username..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -371,39 +420,45 @@ export default function PaymentPage() {
                   <p className="text-sm">{selectedPayment.id}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Order ID</Label>
-                  <p className="text-sm">{selectedPayment.orderId}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Amount</Label>
+                  <p className="text-sm">UZS{parseFloat(selectedPayment.price).toFixed(2)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Amount</Label>
-                  <p className="text-sm">${selectedPayment.amount.toFixed(2)}</p>
-                </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Method</Label>
-                  <p className="text-sm">{selectedPayment.method}</p>
+                  <p className="text-sm">{selectedPayment.payment_type.name}</p>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Status</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <div
                       className={`h-2.5 w-2.5 rounded-full ${
-                        selectedPayment.status === "Completed"
-                          ? "bg-green-500"
-                          : selectedPayment.status === "Pending"
-                            ? "bg-yellow-500"
-                            : "bg-red-500"
+                        selectedPayment.is_active ? "bg-green-500" : "bg-red-500"
                       }`}
                     />
-                    <span className="text-sm">{selectedPayment.status}</span>
+                    <span className="text-sm">{selectedPayment.is_active ? "Completed" : "Failed"}</span>
                   </div>
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Date</Label>
-                  <p className="text-sm">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
+                  <p className="text-sm">{new Date(selectedPayment.created_at).toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Username</Label>
+                  <p className="text-sm">{selectedPayment.user.username}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">User Email</Label>
+                  <p className="text-sm">{selectedPayment.user.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">User Balance</Label>
+                  <p className="text-sm">${parseFloat(selectedPayment.user.balance).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -414,6 +469,5 @@ export default function PaymentPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
-

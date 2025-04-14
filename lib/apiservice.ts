@@ -46,6 +46,7 @@ const handleError = (error: AxiosError<ErrorResponse>): Promise<never> => {
   } else if (error.request) {
     return Promise.reject({ message: "Server bilan bog‘lanishda xato" });
   } else {
+    
     return Promise.reject({ message: "Noma'lum xato yuz berdi" });
   }
 };
@@ -206,7 +207,37 @@ export const deleteService = async (id: number): Promise<void> => {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+// getpayments history
+interface PaymentType {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+interface Payment {
+  id: number;
+  price: string;
+  user: User;
+  payment_type: PaymentType;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
 
+}export const getPayments = async (
+  limit: number = 10,
+  offset: number = 0,
+  type: string
+): Promise<PaginatedResponse<Payment>> => {
+  try {
+    const response = await apiClient.get<PaginatedResponse<Payment>>("/payments/", {
+      params: { limit, offset, type },
+    });
+    return response.data;
+  } catch (error) {
+    return handleError(error as AxiosError<ErrorResponse>);
+  }
+};
 // -------------------- CATEGORY RELATED -------------------- //
 interface Category {
   id: number;
@@ -225,6 +256,14 @@ export const getCategories = async (
     const response = await apiClient.get<PaginatedResponse<Category>>("/categories/", {
       params: { limit, offset },
     });
+    return response.data;
+  } catch (error) {
+    return handleError(error as AxiosError<ErrorResponse>);
+  }
+};
+export const getCategoriesall = async (): Promise<Category> => {
+  try {
+    const response = await apiClient.get<Category>("/categories/", );
     return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);

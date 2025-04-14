@@ -31,7 +31,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { DurationInput } from "@/components/ui/duration-input";
 import { FormMessage } from "@/components/ui/form";
-import { getCategories, getServices, createService, updateService, deleteService, getApis } from "@/lib/apiservice";
+import { getCategories, getServices, createService, updateService, deleteService, getApis, getCategoriesall } from "@/lib/apiservice";
 
 // Interfeyslar (oldingi kod bilan bir xil)
 interface Category {
@@ -149,16 +149,17 @@ export default function ServicePage() {
         setLoading(true);
         const offset = (currentPage - 1) * itemsPerPage;
         const [categoriesData, servicesData, apisData] = await Promise.all([
-          getCategories(),
+          getCategoriesall(),
           getServices(itemsPerPage, offset),
           getApis(),
         ]);
-        setCategories(categoriesData.results); // `results` ni ishlatamiz
+        console.log( categoriesData);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : [categoriesData]); // Ensure it's an array
         setServices(servicesData.results);
         setTotalCount(servicesData.count);
         setApis(apisData.results); // `results` ni ishlatamiz
-        if (categoriesData.results.length > 0) {
-          setNewService((prev) => ({ ...prev, category: categoriesData.results[0].id }));
+        if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+          setNewService((prev) => ({ ...prev, category: categoriesData[0].id }));
         }
         if (apisData.results.length > 0) {
           setNewService((prev) => ({ ...prev, api: apisData.results[0].id }));
@@ -663,7 +664,7 @@ export default function ServicePage() {
           </>
         }
       >
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 p-8">
           <div className="grid gap-2">
             <Label htmlFor="filter-category">Category</Label>
             <Select
