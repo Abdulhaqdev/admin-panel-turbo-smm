@@ -131,7 +131,7 @@ export const getUsers = async (limit: number = 10, offset: number = 0): Promise<
 // -------------------- ORDER RELATED -------------------- //
 interface Order {
   id: number;
-  service: number;
+  service: Service;
   price: number;
   url: string;
   status: string;

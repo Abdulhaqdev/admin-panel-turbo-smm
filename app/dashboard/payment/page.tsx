@@ -456,11 +456,11 @@ export default function PaymentPage() {
                   <Label className="text-sm font-medium text-muted-foreground">User Email</Label>
                   <p className="text-sm">{selectedPayment.user.email}</p>
                 </div>
+              </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">User Balance</Label>
-                  <p className="text-sm">${parseFloat(selectedPayment.user.balance).toFixed(2)}</p>
+                  <p className="text-sm">{selectedPayment.user.balance} UZS</p>
                 </div>
-              </div>
             </div>
           )}
           <DialogFooter>

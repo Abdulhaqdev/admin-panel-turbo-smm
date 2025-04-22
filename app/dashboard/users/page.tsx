@@ -7,8 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -119,13 +117,6 @@ export default function UsersPage() {
       : (bValue as string).localeCompare(aValue as string);
   });
 
-  const handleExportCSV = () => {
-    alert("Exporting users to CSV...");
-  };
-
-  const handleExportPDF = () => {
-    alert("Exporting users to PDF...");
-  };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 

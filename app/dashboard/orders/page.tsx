@@ -103,14 +103,9 @@ export default function OrdersPage() {
           getOrders(itemsPerPage, offset),
           getServices(itemsPerPage, 0),
         ]);
-
-        const mappedOrders = ordersData.results.map((order: any) => ({
-          ...order,
-          service: services.find((s) => s.id === order.service) || { id: order.service, name: "Unknown Service" },
-        }));
-        setOrders(mappedOrders || []);
+    
+        setOrders(ordersData.results);
         setTotalCount(ordersData.count || 0);
-
         console.log("Services Data:", servicesData.results);
         const fetchedServices = servicesData.results || servicesData;
         setServices(Array.isArray(fetchedServices) ? fetchedServices : []);
@@ -129,16 +124,16 @@ export default function OrdersPage() {
 
   const mapStatus = (
     apiStatus: string
-  ): "Pending" | "Completed" | "Cancelled" => {
+  ): "Pending" | "Completed" | "Canceled" => {
     switch (apiStatus.toLowerCase()) {
       case "true":
       case "completed":
         return "Completed";
       case "pending":
         return "Pending";
-      case "cancelled":
+      case "Canceled":
       case "false":
-        return "Cancelled";
+        return "Canceled";
       default:
         return "Pending";
     }
@@ -225,7 +220,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-10">
+    <div className="space-y-6 p-2">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
       </div>
@@ -388,12 +383,12 @@ export default function OrdersPage() {
                           className={`h-2.5 w-2.5 rounded-full ${
                             mapStatus(order.status) === "Completed"
                               ? "bg-green-500"
-                              : mapStatus(order.status) === "Pending"
+                              : mapStatus(order.status) === "Canceled"
                               ? "bg-yellow-500"
                               : "bg-red-500"
                           }`}
                         />
-                        <span>{mapStatus(order.status)}</span>
+                        <span>{order.status}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -575,12 +570,12 @@ export default function OrdersPage() {
                     className={`h-2.5 w-2.5 rounded-full ${
                       mapStatus(selectedOrder.status) === "Completed"
                         ? "bg-green-500"
-                        : mapStatus(selectedOrder.status) === "Pending"
+                        : mapStatus(selectedOrder.status) === "Canceled"
                         ? "bg-yellow-500"
                         : "bg-red-500"
                     }`}
                   />
-                  <span>{mapStatus(selectedOrder.status)}</span>
+                  <span>{(selectedOrder.status)}</span>
                 </div>
               </div>
               <div>
@@ -596,7 +591,7 @@ export default function OrdersPage() {
                   Created At
                 </h3>
                 <p className="text-sm">
-                  {new Date(selectedOrder.created_at).toLocaleString()}
+                  {selectedOrder.created_at}
                 </p>
               </div>
               <div>
@@ -604,7 +599,7 @@ export default function OrdersPage() {
                   Updated At
                 </h3>
                 <p className="text-sm">
-                  {new Date(selectedOrder.updated_at).toLocaleString()}
+                  {selectedOrder.updated_at}
                 </p>
               </div>
             </div>
