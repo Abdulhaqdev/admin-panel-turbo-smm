@@ -1,3 +1,4 @@
+// lib/apiService.ts
 import axios, { AxiosResponse, AxiosError } from "axios";
 
 // -------------------- AUTHENTICATION RELATED -------------------- //
@@ -46,7 +47,6 @@ const handleError = (error: AxiosError<ErrorResponse>): Promise<never> => {
   } else if (error.request) {
     return Promise.reject({ message: "Server bilan bog‘lanishda xato" });
   } else {
-    
     return Promise.reject({ message: "Noma'lum xato yuz berdi" });
   }
 };
@@ -162,7 +162,7 @@ interface Service {
   max: number;
   price: number;
   site_id: number;
-  category: number; // `service_type` o‘rniga `category`
+  category: number;
   api: number;
   created_at: string;
   updated_at: string;
@@ -207,7 +207,8 @@ export const deleteService = async (id: number): Promise<void> => {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
-// getpayments history
+
+// -------------------- PAYMENT RELATED -------------------- //
 interface PaymentType {
   id: number;
   name: string;
@@ -215,6 +216,7 @@ interface PaymentType {
   updated_at: string;
   is_active: boolean;
 }
+
 interface Payment {
   id: number;
   price: string;
@@ -223,8 +225,9 @@ interface Payment {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+}
 
-}export const getPayments = async (
+export const getPayments = async (
   limit: number = 10,
   offset: number = 0,
   type: string
@@ -238,6 +241,7 @@ interface Payment {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 // -------------------- CATEGORY RELATED -------------------- //
 interface Category {
   id: number;
@@ -261,14 +265,16 @@ export const getCategories = async (
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 export const getCategoriesall = async (): Promise<Category> => {
   try {
-    const response = await apiClient.get<Category>("/categories/", );
+    const response = await apiClient.get<Category>("/categories/");
     return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 export const createCategory = async (
   category: Omit<Category, "id" | "created_at" | "updated_at">
 ): Promise<Category> => {
@@ -288,6 +294,7 @@ export const updateCategory = async (id: number, category: Partial<Category>): P
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 export const deleteCategory = async (id: number): Promise<void> => {
   try {
     await apiClient.delete(`/categories/${id}/`);
@@ -295,6 +302,7 @@ export const deleteCategory = async (id: number): Promise<void> => {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 // -------------------- SERVICE TYPE RELATED -------------------- //
 interface ServiceType {
   id: number;
@@ -376,13 +384,14 @@ interface ErrorLog {
 export const getApis = async (limit: number = 5, offset: number = 0): Promise<PaginatedResponse<Api>> => {
   try {
     const response = await apiClient.get<PaginatedResponse<Api>>("/apis/", {
-      params: { limit, offset }, // limit va offset parametrlari qo'shildi
+      params: { limit, offset },
     });
     return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);
   }
 };
+
 export const createApi = async (
   api: Omit<Api, "id" | "created_at" | "updated_at" | "last_used" | "error_logs">
 ): Promise<Api> => {
@@ -415,11 +424,12 @@ export const deleteApi = async (id: number): Promise<void> => {
 interface Exchange {
   id: number;
   name: string;
-  price: string; // Majburiy qilib qo‘shildi
+  price: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
+
 export const getExchanges = async (limit: number = 10, offset: number = 0): Promise<PaginatedResponse<Exchange>> => {
   try {
     const response = await apiClient.get<PaginatedResponse<Exchange>>("/exchanges/", {
@@ -427,7 +437,7 @@ export const getExchanges = async (limit: number = 10, offset: number = 0): Prom
     });
     return response.data;
   } catch (error) {
-    return handleError(error as AxiosError<ErrorResponse>); 
+    return handleError(error as AxiosError<ErrorResponse>);
   }
 };
 
@@ -454,6 +464,39 @@ export const updateExchange = async (id: number, exchange: Partial<Exchange>): P
 export const deleteExchange = async (id: number): Promise<void> => {
   try {
     await apiClient.delete(`/exchanges/${id}/`);
+  } catch (error) {
+    return handleError(error as AxiosError<ErrorResponse>);
+  }
+};
+
+// -------------------- DASHBOARD STATISTICS RELATED -------------------- //
+interface Metrics {
+  orders: { current: number; previous: number };
+  revenue: { current: number; previous: number };
+  services: { current: number; previous: number };
+  users: { current: number; previous: number };
+}
+
+interface ChartDataPoint {
+  date: string;
+  orders: number;
+  revenue: number;
+}
+
+interface DashboardResponse {
+  metrics: Metrics;
+  chartData: ChartDataPoint[];
+}
+
+export const getDashboardStatistics = async (range?: string): Promise<DashboardResponse> => {
+  try {
+    const params: { range?: string } = {};
+    if (range) params.range = range;
+
+    const response = await apiClient.get<DashboardResponse>("/dashboard/full/", {
+      params,
+    });
+    return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);
   }

@@ -1,6 +1,7 @@
-"use client"
+// app/(root)/dashboard/page.tsx
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   BarChart,
   LineChart,
@@ -9,130 +10,64 @@ import {
   Package,
   Users,
   ShoppingCart,
-  Download,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-} from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { DatePickerWithRange } from "@/components/date-range-picker"
-import { DashboardChart } from "@/components/dashboard/dashboard-chart"
-import { useDateContext } from "@/contexts/date-context"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { format, isSameDay } from "date-fns"
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { DatePickerWithRange } from "@/components/date-range-picker";
+import { DashboardChart } from "@/components/dashboard/dashboard-chart";
+import { useDateContext } from "@/contexts/date-context";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { format } from "date-fns";
+import { getDashboardStatistics } from '@/lib/apiservice'
+// import { getDashboardStatistics } from "@/lib/apiService";
 
 export default function DashboardPage() {
-  const [chartType, setChartType] = useState<"bar" | "line" | "area">("bar")
-  const { dateRange, hasDataForRange, getPercentChange } = useDateContext()
-
-  // State for dashboard metrics
+  const [chartType, setChartType] = useState<"bar" | "line" | "area">("bar");
+  const { dateRange, hasDataForRange, getPercentChange, predefinedRange } = useDateContext();
   const [metrics, setMetrics] = useState({
     orders: { current: 0, previous: 0 },
     revenue: { current: 0, previous: 0 },
     services: { current: 0, previous: 0 },
     users: { current: 0, previous: 0 },
-  })
+  });
+  const [chartData, setChartData] = useState<{ date: string; orders: number; revenue: number }[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Update metrics based on the selected date range
   useEffect(() => {
-    if (!hasDataForRange) {
-      setMetrics({
-        orders: { current: 0, previous: 0 },
-        revenue: { current: 0, previous: 0 },
-        services: { current: 0, previous: 0 },
-        users: { current: 0, previous: 0 },
-      })
-      return
-    }
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-    // Mock data generator based on date range
-    const generateMetricsForRange = () => {
-      // Base numbers that will be modified based on the date range
-      const baseMetrics = {
-        orders: 1282224,
-        revenue: 453333231.89,
-        services: 573,
-        users: 342,
-      }
+        const range = predefinedRange === "all" ? undefined : predefinedRange.toUpperCase();
+        const response = await getDashboardStatistics(range);
 
-      // For all time, we use the base metrics
-      if (!dateRange) {
-        return {
-          orders: { current: baseMetrics.orders * 4, previous: baseMetrics.orders * 3 },
-          revenue: { current: baseMetrics.revenue * 4, previous: baseMetrics.revenue * 3 },
-          services: { current: baseMetrics.services * 3, previous: baseMetrics.services * 2 },
-          users: { current: baseMetrics.users * 3, previous: baseMetrics.users * 2 },
-        }
+        setMetrics(response.metrics);
+        setChartData(response.chartData);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch dashboard data. Please try again later.");
+        setMetrics({
+          orders: { current: 0, previous: 0 },
+          revenue: { current: 0, previous: 0 },
+          services: { current: 0, previous: 0 },
+          users: { current: 0, previous: 0 },
+        });
+        setChartData([]);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      // Default case for custom date ranges
-      let multiplier = 1
-      let previousMultiplier = 0.85
+    fetchData();
+  }, [predefinedRange]);
 
-      // Single day has less data
-      if (dateRange.from && dateRange.to && isSameDay(dateRange.from, dateRange.to)) {
-        multiplier = 0.2
-        previousMultiplier = 0.15
-      }
-      // For short ranges (1-7 days)
-      else if (
-        dateRange.from &&
-        dateRange.to &&
-        dateRange.to.getTime() - dateRange.from.getTime() <= 7 * 24 * 60 * 60 * 1000
-      ) {
-        multiplier = 0.5
-        previousMultiplier = 0.4
-      }
-      // For medium ranges (8-30 days)
-      else if (
-        dateRange.from &&
-        dateRange.to &&
-        dateRange.to.getTime() - dateRange.from.getTime() <= 30 * 24 * 60 * 60 * 1000
-      ) {
-        multiplier = 1
-        previousMultiplier = 0.85
-      }
-      // For long ranges (31-90 days)
-      else if (
-        dateRange.from &&
-        dateRange.to &&
-        dateRange.to.getTime() - dateRange.from.getTime() <= 90 * 24 * 60 * 60 * 1000
-      ) {
-        multiplier = 2
-        previousMultiplier = 1.7
-      }
-      // For very long ranges (90+ days)
-      else {
-        multiplier = 3
-        previousMultiplier = 2.5
-      }
-
-      // Add some randomness to make it look more realistic
-      const addNoise = (value: number) => value * (0.9 + Math.random() * 0.2)
-
-      return {
-        orders: {
-          current: Math.round(addNoise(baseMetrics.orders * multiplier)),
-          previous: Math.round(addNoise(baseMetrics.orders * previousMultiplier)),
-        },
-        revenue: {
-          current: Number(addNoise(baseMetrics.revenue * multiplier).toFixed(2)),
-          previous: Number(addNoise(baseMetrics.revenue * previousMultiplier).toFixed(2)),
-        },
-        services: {
-          current: Math.round(addNoise(baseMetrics.services * multiplier)),
-          previous: Math.round(addNoise(baseMetrics.services * previousMultiplier)),
-        },
-        users: {
-          current: Math.round(addNoise(baseMetrics.users * multiplier)),
-          previous: Math.round(addNoise(baseMetrics.users * previousMultiplier)),
-        },
-      }
-    }
-
-    setMetrics(generateMetricsForRange())
-  }, [dateRange, hasDataForRange])
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -143,7 +78,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {!hasDataForRange && dateRange?.from && dateRange?.to && (
+      {error && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {!hasDataForRange && dateRange?.from && dateRange?.to && !error && (
         <Alert variant="warning">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>No data available</AlertTitle>
@@ -190,7 +133,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${metrics.revenue.current.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{metrics.revenue.current}</div>
             <div className="flex items-center space-x-1 text-xs">
               {metrics.revenue.current > metrics.revenue.previous ? (
                 <TrendingUp className="h-3 w-3 text-green-500" />
@@ -213,38 +156,10 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+     
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Services</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.services.current.toLocaleString()}</div>
-            <div className="flex items-center space-x-1 text-xs">
-              {metrics.services.current > metrics.services.previous ? (
-                <TrendingUp className="h-3 w-3 text-green-500" />
-              ) : metrics.services.current < metrics.services.previous ? (
-                <TrendingDown className="h-3 w-3 text-red-500" />
-              ) : null}
-              <p
-                className={`${
-                  metrics.services.current > metrics.services.previous
-                    ? "text-green-500"
-                    : metrics.services.current < metrics.services.previous
-                      ? "text-red-500"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {hasDataForRange
-                  ? `${getPercentChange(metrics.services.current, metrics.services.previous).toFixed(1)}% from previous period`
-                  : "No change from previous period"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -271,6 +186,35 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Services</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics.services.current.toLocaleString()}</div>
+            {/* <div className="flex items-center space-x-1 text-xs">
+              {metrics.services.current > metrics.services.previous ? (
+                <TrendingUp className="h-3 w-3 text-green-500" />
+              ) : metrics.services.current < metrics.services.previous ? (
+                <TrendingDown className="h-3 w-3 text-red-500" />
+              ) : null}
+              <p
+                className={`${
+                  metrics.services.current > metrics.services.previous
+                    ? "text-green-500"
+                    : metrics.services.current < metrics.services.previous
+                      ? "text-red-500"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {hasDataForRange
+                  ? `${getPercentChange(metrics.services.current, metrics.services.previous).toFixed(1)}% from previous period`
+                  : "No change from previous period"}
+              </p>
+            </div> */}
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="col-span-4">
@@ -291,27 +235,18 @@ export default function DashboardPage() {
             <Button variant={chartType === "bar" ? "default" : "outline"} size="sm" onClick={() => setChartType("bar")}>
               <BarChart className="h-4 w-4" />
             </Button>
-            <Button
-              variant={chartType === "line" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartType("line")}
-            >
+            <Button variant={chartType === "line" ? "default" : "outline"} size="sm" onClick={() => setChartType("line")}>
               <LineChart className="h-4 w-4" />
             </Button>
-            <Button
-              variant={chartType === "area" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartType("area")}
-            >
+            <Button variant={chartType === "area" ? "default" : "outline"} size="sm" onClick={() => setChartType("area")}>
               <AreaChart className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         <CardContent className="pl-2">
-          <DashboardChart chartType={chartType} />
+          <DashboardChart chartType={chartType} chartData={chartData} />
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
-

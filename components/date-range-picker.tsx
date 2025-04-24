@@ -65,12 +65,12 @@ export function DatePickerWithRange({ className }: React.HTMLAttributes<HTMLDivE
     setPredefinedRange(value as any)
   }
 
-  const handleCalendarSelect = (range: DateRange | undefined) => {
-    setDateRange(range)
-    if (range?.from && range?.to) {
-      setPredefinedRange("custom")
-    }
-  }
+  // const handleCalendarSelect = (range: DateRange | undefined) => {
+  //   setDateRange(range)
+  //   if (range?.from && range?.to) {
+  //     setPredefinedRange("custom")
+  //   }
+  // }
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -84,7 +84,7 @@ export function DatePickerWithRange({ className }: React.HTMLAttributes<HTMLDivE
           <ToggleGroupItem value="all">All Time</ToggleGroupItem>
         </ToggleGroup>
 
-        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+        {/* <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
           <PopoverTrigger asChild>
             <Button
               id="date"
@@ -121,7 +121,7 @@ export function DatePickerWithRange({ className }: React.HTMLAttributes<HTMLDivE
               numberOfMonths={2}
             />
           </PopoverContent>
-        </Popover>
+        </Popover> */}
       </div>
     </div>
   )
