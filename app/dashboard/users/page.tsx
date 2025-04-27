@@ -119,7 +119,14 @@ export default function UsersPage() {
 
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const maxVisiblePages = 5; // Ko'rsatiladigan maksimal sahifalar soni
 
+  // Joriy sahifa asosida ko'rsatiladigan sahifalar oralig'ini hisoblash
+  const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+  
+  // Agar endPage totalPages'dan kichik bo'lsa, startPage'ni qayta sozlash
+  const adjustedStartPage = Math.max(1, endPage - maxVisiblePages + 1);
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -293,46 +300,84 @@ export default function UsersPage() {
           </div>
 
           <div className="mt-4">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePageChange(currentPage - 1);
-                    }}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      href="#"
-                      isActive={currentPage === page}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handlePageChange(page);
-                      }}
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                {totalPages > 5 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePageChange(currentPage + 1);
-                    }}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handlePageChange(currentPage - 1);
+            }}
+            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+
+        {/* Agar adjustedStartPage 1 dan katta bo'lsa, birinchi sahifani va ellipsis qo'shamiz */}
+        {adjustedStartPage > 1 && (
+          <>
+            <PaginationItem>
+              <PaginationLink
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageChange(1);
+                }}
+              >
+                1
+              </PaginationLink>
+            </PaginationItem>
+            {adjustedStartPage > 2 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+          </>
+        )}
+
+        {/* Faqat adjustedStartPage'dan endPage'gacha bo'lgan sahifalarni ko'rsatamiz */}
+        {Array.from({ length: endPage - adjustedStartPage + 1 }, (_, index) => adjustedStartPage + index).map((page) => (
+          <PaginationItem key={page}>
+            <PaginationLink
+              href="#"
+              isActive={currentPage === page}
+              onClick={(e) => {
+                e.preventDefault();
+                handlePageChange(page);
+              }}
+            >
+              {page}
+            </PaginationLink>
+          </PaginationItem>
+        ))}
+
+        {/* Agar endPage totalPages'dan kichik bo'lsa, oxirgi sahifani va ellipsis qo'shamiz */}
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+            <PaginationItem>
+              <PaginationLink
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePageChange(totalPages);
+                }}
+              >
+                {totalPages}
+              </PaginationLink>
+            </PaginationItem>
+          </>
+        )}
+
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handlePageChange(currentPage + 1);
+            }}
+            className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  </div>
         </CardContent>
       </Card>
 
