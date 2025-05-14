@@ -153,10 +153,15 @@ export const getOrders = async (limit: number = 10, offset: number = 0): Promise
 };
 
 // -------------------- SERVICE RELATED -------------------- //
+// -------------------- SERVICE RELATED -------------------- //
 interface Service {
   id: number;
-  name: string;
-  description: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  description_uz: string;
+  description_ru: string;
+  description_en: string;
   duration: number;
   min: number;
   max: number;
@@ -193,7 +198,7 @@ export const createService = async (
 
 export const updateService = async (id: number, service: Partial<Service>): Promise<Service> => {
   try {
-    const response = await apiClient.put<Service>(`/service/${id}/`, service);
+    const response = await apiClient.put<Service>(`/services/${id}/`, service); // Fixed endpoint to `/services/`
     return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);
@@ -202,7 +207,7 @@ export const updateService = async (id: number, service: Partial<Service>): Prom
 
 export const deleteService = async (id: number): Promise<void> => {
   try {
-    await apiClient.delete(`/service/${id}/`);
+    await apiClient.delete(`/services/${id}/`); // Fixed endpoint to `/services/`
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);
   }
@@ -243,13 +248,19 @@ export const getPayments = async (
 };
 
 // -------------------- CATEGORY RELATED -------------------- //
+// -------------------- CATEGORY RELATED -------------------- //
 interface Category {
   id: number;
-  name: string;
-  description?: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  description_uz?: string;
+  description_ru?: string;
+  description_en?: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  icon?: string;
 }
 
 export const getCategories = async (
@@ -260,15 +271,6 @@ export const getCategories = async (
     const response = await apiClient.get<PaginatedResponse<Category>>("/categories/", {
       params: { limit, offset },
     });
-    return response.data;
-  } catch (error) {
-    return handleError(error as AxiosError<ErrorResponse>);
-  }
-};
-
-export const getCategoriesall = async (): Promise<Category> => {
-  try {
-    const response = await apiClient.get<Category>("/categories/");
     return response.data;
   } catch (error) {
     return handleError(error as AxiosError<ErrorResponse>);

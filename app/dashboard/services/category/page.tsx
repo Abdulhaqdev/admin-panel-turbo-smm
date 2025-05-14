@@ -1,8 +1,7 @@
-// CategoryPage.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -22,16 +20,20 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCategories, createCategory, updateCategory, deleteCategory } from "@/lib/apiservice";
-import SocialIcon from "@/components/SocialIcon"; // Yangi komponent
+import SocialIcon from "@/components/SocialIcon";
 
 interface Category {
   id: number;
-  name: string;
-  description?: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  description_uz?: string;
+  description_ru?: string;
+  description_en?: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
-  icon?: string; // Yangi xususiyat
+  icon?: string;
 }
 
 interface PaginatedResponse<T> {
@@ -41,7 +43,6 @@ interface PaginatedResponse<T> {
   results: T[];
 }
 
-// Ijtimoiy tarmoqlar ro'yxati
 const socialPlatforms = [
   "Instagram",
   "Facebook",
@@ -58,7 +59,7 @@ const socialPlatforms = [
 
 export default function CategoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [sortField, setSortField] = useState<keyof Category>("name");
+  const [sortField, setSortField] = useState<keyof Category>("name_en");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
@@ -68,12 +69,15 @@ export default function CategoryPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   const itemsPerPage = 10;
-
   const [newCategory, setNewCategory] = useState<Omit<Category, "id" | "created_at" | "updated_at">>({
-    name: "",
-    description: "",
+    name_uz: "",
+    name_ru: "",
+    name_en: "",
+    description_uz: "",
+    description_ru: "",
+    description_en: "",
     is_active: true,
-    icon: "", // Yangi xususiyat
+    icon: "",
   });
 
   const [editCategory, setEditCategory] = useState<Category | null>(null);
@@ -88,8 +92,10 @@ export default function CategoryPage() {
         const data: PaginatedResponse<Category> = await getCategories(itemsPerPage, offset);
         const normalizedData = data.results.map((cat) => ({
           ...cat,
-          description: cat.description ?? "",
-          icon: cat.icon ?? "", // Ikonka bo'lmasa bo'sh qator
+          description_uz: cat.description_uz ?? "",
+          description_ru: cat.description_ru ?? "",
+          description_en: cat.description_en ?? "",
+          icon: cat.icon ?? "",
         }));
         setCategories(normalizedData);
         setTotalCount(data.count);
@@ -128,8 +134,23 @@ export default function CategoryPage() {
   const handleAddCategory = async () => {
     try {
       const createdCategory = await createCategory(newCategory);
-      setCategories([...categories, { ...createdCategory, description: createdCategory.description ?? "",  }]);
-      setNewCategory({ name: "", description: "", is_active: true});
+      setCategories([...categories, { 
+        ...createdCategory, 
+        description_uz: createdCategory.description_uz ?? "",
+        description_ru: createdCategory.description_ru ?? "",
+        description_en: createdCategory.description_en ?? "",
+        icon: createdCategory.icon ?? "",
+      }]);
+      setNewCategory({ 
+        name_uz: "", 
+        name_ru: "", 
+        name_en: "", 
+        description_uz: "", 
+        description_ru: "", 
+        description_en: "", 
+        is_active: true, 
+        icon: "" 
+      });
       setAddDialogOpen(false);
       setCurrentPage(1);
     } catch (err) {
@@ -144,7 +165,13 @@ export default function CategoryPage() {
       setCategories(
         categories.map((category) =>
           category.id === updatedCategory.id
-            ? { ...updatedCategory, description: updatedCategory.description ?? "", icon: updatedCategory.icon ?? "" }
+            ? { 
+                ...updatedCategory, 
+                description_uz: updatedCategory.description_uz ?? "", 
+                description_ru: updatedCategory.description_ru ?? "", 
+                description_en: updatedCategory.description_en ?? "", 
+                icon: updatedCategory.icon ?? "" 
+              }
             : category
         )
       );
@@ -216,10 +243,10 @@ export default function CategoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("name")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("name_en")}>
                     <div className="flex items-center gap-1">
-                      Name
-                      {sortField === "name" &&
+                      Name (EN)
+                      {sortField === "name_en" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -227,10 +254,10 @@ export default function CategoryPage() {
                         ))}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("description")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("description_en")}>
                     <div className="flex items-center gap-1">
-                      Description
-                      {sortField === "description" &&
+                      Description (EN)
+                      {sortField === "description_en" &&
                         (sortDirection === "asc" ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
@@ -280,10 +307,10 @@ export default function CategoryPage() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <SocialIcon iconName={category.icon} className="h-5 w-5" />
-                        <span>{category.name}</span>
+                        <span>{category.name_en}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{category.description || "No description"}</TableCell>
+                    <TableCell>{category.description_en || "No description"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div
@@ -394,11 +421,27 @@ export default function CategoryPage() {
       >
         <div className="grid gap-4 p-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name_uz">Name (Uzbek)</Label>
             <Input
-              id="name"
-              value={newCategory.name}
-              onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+              id="name_uz"
+              value={newCategory.name_uz}
+              onChange={(e) => setNewCategory({ ...newCategory, name_uz: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="name_ru">Name (Russian)</Label>
+            <Input
+              id="name_ru"
+              value={newCategory.name_ru}
+              onChange={(e) => setNewCategory({ ...newCategory, name_ru: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="name_en">Name (English)</Label>
+            <Input
+              id="name_en"
+              value={newCategory.name_en}
+              onChange={(e) => setNewCategory({ ...newCategory, name_en: e.target.value })}
             />
           </div>
           <div className="grid gap-2">
@@ -423,11 +466,27 @@ export default function CategoryPage() {
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description_uz">Description (Uzbek)</Label>
             <Textarea
-              id="description"
-              value={newCategory.description}
-              onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+              id="description_uz"
+              value={newCategory.description_uz}
+              onChange={(e) => setNewCategory({ ...newCategory, description_uz: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="description_ru">Description (Russian)</Label>
+            <Textarea
+              id="description_ru"
+              value={newCategory.description_ru}
+              onChange={(e) => setNewCategory({ ...newCategory, description_ru: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="description_en">Description (English)</Label>
+            <Textarea
+              id="description_en"
+              value={newCategory.description_en}
+              onChange={(e) => setNewCategory({ ...newCategory, description_en: e.target.value })}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -459,11 +518,27 @@ export default function CategoryPage() {
         {editCategory && (
           <div className="grid gap-4 p-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Name</Label>
+              <Label htmlFor="edit-name_uz">Name (Uzbek)</Label>
               <Input
-                id="edit-name"
-                value={editCategory.name}
-                onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })}
+                id="edit-name_uz"
+                value={editCategory.name_uz}
+                onChange={(e) => setEditCategory({ ...editCategory, name_uz: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name_ru">Name (Russian)</Label>
+              <Input
+                id="edit-name_ru"
+                value={editCategory.name_ru}
+                onChange={(e) => setEditCategory({ ...editCategory, name_ru: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name_en">Name (English)</Label>
+              <Input
+                id="edit-name_en"
+                value={editCategory.name_en}
+                onChange={(e) => setEditCategory({ ...editCategory, name_en: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
@@ -488,11 +563,27 @@ export default function CategoryPage() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description_uz">Description (Uzbek)</Label>
               <Textarea
-                id="edit-description"
-                value={editCategory.description || ""}
-                onChange={(e) => setEditCategory({ ...editCategory, description: e.target.value })}
+                id="edit-description_uz"
+                value={editCategory.description_uz || ""}
+                onChange={(e) => setEditCategory({ ...editCategory, description_uz: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description_ru">Description (Russian)</Label>
+              <Textarea
+                id="edit-description_ru"
+                value={editCategory.description_ru || ""}
+                onChange={(e) => setEditCategory({ ...editCategory, description_ru: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description_en">Description (English)</Label>
+              <Textarea
+                id="edit-description_en"
+                value={editCategory.description_en || ""}
+                onChange={(e) => setEditCategory({ ...editCategory, description_en: e.target.value })}
               />
             </div>
             <div className="flex items-center gap-2">

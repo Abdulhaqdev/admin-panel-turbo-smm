@@ -31,16 +31,20 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { DurationInput } from "@/components/ui/duration-input";
 import { FormMessage } from "@/components/ui/form";
-import { getCategories, getServices, createService, updateService, deleteService, getApis, getCategoriesall } from "@/lib/apiservice";
+import { getCategories, getServices, createService, updateService, deleteService, getApis } from "@/lib/apiservice";
 
-// Interfeyslar (oldingi kod bilan bir xil)
 interface Category {
   id: number;
-  name: string;
-  description?: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  description_uz?: string;
+  description_ru?: string;
+  description_en?: string;
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  icon?: string;
 }
 
 interface Api {
@@ -64,8 +68,12 @@ interface Api {
 
 interface Service {
   id: number;
-  name: string;
-  description: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  description_uz: string;
+  description_ru: string;
+  description_en: string;
   duration: number;
   min: number;
   max: number;
@@ -79,8 +87,12 @@ interface Service {
 }
 
 interface FormErrors {
-  name?: string;
-  description?: string;
+  name_uz?: string;
+  name_ru?: string;
+  name_en?: string;
+  description_uz?: string;
+  description_ru?: string;
+  description_en?: string;
   price?: string;
   duration?: string;
   min?: string;
@@ -102,7 +114,7 @@ export default function ServicePage() {
   const [apis, setApis] = useState<Api[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
-  const [sortField, setSortField] = useState<keyof Service>("name");
+  const [sortField, setSortField] = useState<keyof Service>("name_en");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<number | null>(null);
@@ -115,8 +127,12 @@ export default function ServicePage() {
   const itemsPerPage = 4;
 
   const [newService, setNewService] = useState<Omit<Service, "id" | "created_at" | "updated_at">>({
-    name: "",
-    description: "",
+    name_uz: "",
+    name_ru: "",
+    name_en: "",
+    description_uz: "",
+    description_ru: "",
+    description_en: "",
     duration: 86400,
     min: 0,
     max: 0,
@@ -149,17 +165,29 @@ export default function ServicePage() {
         setLoading(true);
         const offset = (currentPage - 1) * itemsPerPage;
         const [categoriesData, servicesData, apisData] = await Promise.all([
-          getCategoriesall(),
+          getCategories(100, 0), // Fetch all categories (adjust limit as needed)
           getServices(itemsPerPage, offset),
           getApis(),
         ]);
-        console.log( categoriesData);
-        setCategories(Array.isArray(categoriesData) ? categoriesData : [categoriesData]); // Ensure it's an array
-        setServices(servicesData.results);
+        const normalizedCategories = categoriesData.results.map((cat) => ({
+          ...cat,
+          description_uz: cat.description_uz ?? "",
+          description_ru: cat.description_ru ?? "",
+          description_en: cat.description_en ?? "",
+          icon: cat.icon ?? "",
+        }));
+        const normalizedServices = servicesData.results.map((svc) => ({
+          ...svc,
+          description_uz: svc.description_uz ?? "",
+          description_ru: svc.description_ru ?? "",
+          description_en: svc.description_en ?? "",
+        }));
+        setCategories(normalizedCategories);
+        setServices(normalizedServices);
         setTotalCount(servicesData.count);
-        setApis(apisData.results); // `results` ni ishlatamiz
-        if (Array.isArray(categoriesData) && categoriesData.length > 0) {
-          setNewService((prev) => ({ ...prev, category: categoriesData[0].id }));
+        setApis(apisData.results);
+        if (normalizedCategories.length > 0) {
+          setNewService((prev) => ({ ...prev, category: normalizedCategories[0].id }));
         }
         if (apisData.results.length > 0) {
           setNewService((prev) => ({ ...prev, api: apisData.results[0].id }));
@@ -233,7 +261,7 @@ export default function ServicePage() {
     if (filterApiId !== "all" && service.api !== filterApiId) {
       return false;
     }
-    if (searchQuery && !service.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery && !service.name_en.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     return true;
@@ -249,8 +277,10 @@ export default function ServicePage() {
     if (sortField === "duration") {
       return sortDirection === "asc" ? a.duration - b.duration : b.duration - a.duration;
     }
-    if (a[sortField] < b[sortField]) return sortDirection === "asc" ? -1 : 1;
-    if (a[sortField] > b[sortField]) return sortDirection === "asc" ? 1 : -1;
+    const aField = a[sortField] ?? "";
+    const bField = b[sortField] ?? "";
+    if (aField < bField) return sortDirection === "asc" ? -1 : 1;
+    if (aField > bField) return sortDirection === "asc" ? 1 : -1;
     return 0;
   });
 
@@ -272,8 +302,12 @@ export default function ServicePage() {
 
   const validateForm = useCallback(() => {
     const errors: FormErrors = {};
-    if (!newService.name) errors.name = "Name is required";
-    if (!newService.description) errors.description = "Description is required";
+    if (!newService.name_uz) errors.name_uz = "Name (Uzbek) is required";
+    if (!newService.name_ru) errors.name_ru = "Name (Russian) is required";
+    if (!newService.name_en) errors.name_en = "Name (English) is required";
+    if (!newService.description_uz) errors.description_uz = "Description (Uzbek) is required";
+    if (!newService.description_ru) errors.description_ru = "Description (Russian) is required";
+    if (!newService.description_en) errors.description_en = "Description (English) is required";
     if (newService.price === undefined || newService.price === null || isNaN(newService.price))
       errors.price = "Price is required";
     if (newService.duration === 0) errors.duration = "Duration is required";
@@ -289,8 +323,12 @@ export default function ServicePage() {
   const validateEditForm = useCallback(() => {
     if (!editService) return false;
     const errors: FormErrors = {};
-    if (!editService.name) errors.name = "Name is required";
-    if (!editService.description) errors.description = "Description is required";
+    if (!editService.name_uz) errors.name_uz = "Name (Uzbek) is required";
+    if (!editService.name_ru) errors.name_ru = "Name (Russian) is required";
+    if (!editService.name_en) errors.name_en = "Name (English) is required";
+    if (!editService.description_uz) errors.description_uz = "Description (Uzbek) is required";
+    if (!editService.description_ru) errors.description_ru = "Description (Russian) is required";
+    if (!editService.description_en) errors.description_en = "Description (English) is required";
     if (editService.price === undefined || editService.price === null || isNaN(editService.price))
       errors.price = "Price is required";
     if (editService.duration === 0) errors.duration = "Duration is required";
@@ -308,10 +346,19 @@ export default function ServicePage() {
     try {
       const payload = { ...newService };
       const createdService = await createService(payload);
-      setServices((prev) => [...prev, createdService]);
+      setServices((prev) => [...prev, {
+        ...createdService,
+        description_uz: createdService.description_uz ?? "",
+        description_ru: createdService.description_ru ?? "",
+        description_en: createdService.description_en ?? "",
+      }]);
       setNewService({
-        name: "",
-        description: "",
+        name_uz: "",
+        name_ru: "",
+        name_en: "",
+        description_uz: "",
+        description_ru: "",
+        description_en: "",
         duration: 86400,
         min: 0,
         max: 0,
@@ -323,7 +370,7 @@ export default function ServicePage() {
       });
       setFormErrors({});
       setAddDialogOpen(false);
-      setCurrentPage(1); // Yangi xizmat qo‘shilganda birinchi sahifaga qaytish
+      setCurrentPage(1);
     } catch (err) {
       setError((err as { message?: string }).message || "Xizmat qo‘shishda xato yuz berdi");
     }
@@ -335,7 +382,12 @@ export default function ServicePage() {
       const payload = { ...editService };
       const updatedService = await updateService(editService.id, payload);
       setServices((prev) =>
-        prev.map((service) => (service.id === updatedService.id ? updatedService : service)),
+        prev.map((service) => (service.id === updatedService.id ? {
+          ...updatedService,
+          description_uz: updatedService.description_uz ?? "",
+          description_ru: updatedService.description_ru ?? "",
+          description_en: updatedService.description_en ?? "",
+        } : service)),
       );
       setEditService(null);
       setEditFormErrors({});
@@ -353,7 +405,7 @@ export default function ServicePage() {
       setServiceToDelete(null);
       setDeleteDialogOpen(false);
       if (services.length === 1 && currentPage > 1) {
-        setCurrentPage((prev) => prev - 1); // Agar oxirgi xizmat o‘chirilsa, oldingi sahifaga o‘tish
+        setCurrentPage((prev) => prev - 1);
       }
     } catch (err) {
       setError((err as { message?: string }).message || "Xizmat o‘chirishda xato yuz berdi");
@@ -361,7 +413,7 @@ export default function ServicePage() {
   };
 
   const getCategoryName = (categoryId: number) => {
-    return categories.find((cat) => cat.id === categoryId)?.name || "Unknown";
+    return categories.find((cat) => cat.id === categoryId)?.name_en || "Unknown";
   };
 
   const getApiName = (apiId: number) => {
@@ -389,14 +441,12 @@ export default function ServicePage() {
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
-  const maxVisiblePages = 5; // Ko'rsatiladigan maksimal sahifalar soni
+  const maxVisiblePages = 5;
 
-  // Joriy sahifa asosida ko'rsatiladigan sahifalar oralig'ini hisoblash
   const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
   const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-  
-  // Agar endPage totalPages'dan kichik bo'lsa, startPage'ni qayta sozlash
   const adjustedStartPage = Math.max(1, endPage - maxVisiblePages + 1);
+
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -404,13 +454,15 @@ export default function ServicePage() {
   };
 
   if (loading) {
-    return    <div className="flex min-h-screen flex-col">
-    <main className="flex-1 p-4 md:p-10">
-      <div className="mx-auto max-w-7xl flex items-center justify-center min-h-[90vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    return (
+      <div className="flex min-h-screen flex-col">
+        <main className="flex-1 p-4 md:p-10">
+          <div className="mx-auto max-w-7xl flex items-center justify-center min-h-[90vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </main>
       </div>
-    </main>
-  </div>
+    );
   }
 
   if (error) {
@@ -483,7 +535,7 @@ export default function ServicePage() {
                     setServices((prev) =>
                       prev.map((service) =>
                         selectedServices.includes(service.id)
-                          ? { ...service, is_active: false, updated_at: new Date().toISOString() }
+                          ? { ...service, is_active: false, updated_at: new Date().toString() }
                           : service,
                       ),
                     );
@@ -516,10 +568,10 @@ export default function ServicePage() {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("name")}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("name_en")}>
                     <div className="flex items-center gap-1">
-                      Name
-                      {sortField === "name" &&
+                      Name (EN)
+                      {sortField === "name_en" &&
                         (sortDirection === "asc" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                     </div>
                   </TableHead>
@@ -559,7 +611,7 @@ export default function ServicePage() {
                         onCheckedChange={() => handleSelectService(service.id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell className="font-medium">{service.name_en}</TableCell>
                     <TableCell>{getCategoryName(service.category)}</TableCell>
                     <TableCell>${service.price}</TableCell>
                     <TableCell>{`${service.min}-${service.max}`}</TableCell>
@@ -613,84 +665,81 @@ export default function ServicePage() {
           </div>
 
           <div className="mt-4">
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              handlePageChange(currentPage - 1);
-            }}
-            className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-          />
-        </PaginationItem>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage - 1);
+                    }}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
 
-        {/* Agar adjustedStartPage 1 dan katta bo'lsa, birinchi sahifani va ellipsis qo'shamiz */}
-        {adjustedStartPage > 1 && (
-          <>
-            <PaginationItem>
-              <PaginationLink
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handlePageChange(1);
-                }}
-              >
-                1
-              </PaginationLink>
-            </PaginationItem>
-            {adjustedStartPage > 2 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
-          </>
-        )}
+                {adjustedStartPage > 1 && (
+                  <>
+                    <PaginationItem>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(1);
+                        }}
+                      >
+                        1
+                      </PaginationLink>
+                    </PaginationItem>
+                    {adjustedStartPage > 2 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+                  </>
+                )}
 
-        {/* Faqat adjustedStartPage'dan endPage'gacha bo'lgan sahifalarni ko'rsatamiz */}
-        {Array.from({ length: endPage - adjustedStartPage + 1 }, (_, index) => adjustedStartPage + index).map((page) => (
-          <PaginationItem key={page}>
-            <PaginationLink
-              href="#"
-              isActive={currentPage === page}
-              onClick={(e) => {
-                e.preventDefault();
-                handlePageChange(page);
-              }}
-            >
-              {page}
-            </PaginationLink>
-          </PaginationItem>
-        ))}
+                {Array.from({ length: endPage - adjustedStartPage + 1 }, (_, index) => adjustedStartPage + index).map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === page}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(page);
+                      }}
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
 
-        {/* Agar endPage totalPages'dan kichik bo'lsa, oxirgi sahifani va ellipsis qo'shamiz */}
-        {endPage < totalPages && (
-          <>
-            {endPage < totalPages - 1 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
-            <PaginationItem>
-              <PaginationLink
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handlePageChange(totalPages);
-                }}
-              >
-                {totalPages}
-              </PaginationLink>
-            </PaginationItem>
-          </>
-        )}
+                {endPage < totalPages && (
+                  <>
+                    {endPage < totalPages - 1 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+                    <PaginationItem>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(totalPages);
+                        }}
+                      >
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  </>
+                )}
 
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              handlePageChange(currentPage + 1);
-            }}
-            className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  </div>
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage + 1);
+                    }}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </CardContent>
       </Card>
 
@@ -723,7 +772,7 @@ export default function ServicePage() {
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id.toString()}>
-                    {category.name}
+                    {category.name_en}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -753,7 +802,7 @@ export default function ServicePage() {
               <Input
                 type="number"
                 placeholder="Min"
-                value={filterPriceMin}
+//  periphery: {filterPriceMin}
                 onChange={(e) => setFilterPriceMin(e.target.value ? Number.parseFloat(e.target.value) : "")}
               />
               <span>to</span>
@@ -818,7 +867,7 @@ export default function ServicePage() {
               <SelectContent>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id.toString()}>
-                    {category.name}
+                    {category.name_en}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -827,17 +876,45 @@ export default function ServicePage() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="name">
-              Name<span className="text-destructive ml-1">*</span>
+            <Label htmlFor="name_uz">
+              Name (Uzbek)<span className="text-destructive ml-1">*</span>
             </Label>
             <Input
-              id="name"
+              id="name_uz"
               type="text"
-              value={newService.name}
-              onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+              value={newService.name_uz}
+              onChange={(e) => setNewService({ ...newService, name_uz: e.target.value })}
               required
             />
-            {formErrors.name && <FormMessage>{formErrors.name}</FormMessage>}
+            {formErrors.name_uz && <FormMessage>{formErrors.name_uz}</FormMessage>}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="name_ru">
+              Name (Russian)<span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="name_ru"
+              type="text"
+              value={newService.name_ru}
+              onChange={(e) => setNewService({ ...newService, name_ru: e.target.value })}
+              required
+            />
+            {formErrors.name_ru && <FormMessage>{formErrors.name_ru}</FormMessage>}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="name_en">
+              Name (English)<span className="text-destructive ml-1">*</span>
+            </Label>
+            <Input
+              id="name_en"
+              type="text"
+              value={newService.name_en}
+              onChange={(e) => setNewService({ ...newService, name_en: e.target.value })}
+              required
+            />
+            {formErrors.name_en && <FormMessage>{formErrors.name_en}</FormMessage>}
           </div>
 
           <DurationInput
@@ -849,16 +926,42 @@ export default function ServicePage() {
           />
 
           <div className="grid gap-2">
-            <Label htmlFor="description">
-              Description<span className="text-destructive ml-1">*</span>
+            <Label htmlFor="description_uz">
+              Description (Uzbek)<span className="text-destructive ml-1">*</span>
             </Label>
             <Textarea
-              id="description"
-              value={newService.description}
-              onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+              id="description_uz"
+              value={newService.description_uz}
+              onChange={(e) => setNewService({ ...newService, description_uz: e.target.value })}
               required
             />
-            {formErrors.description && <FormMessage>{formErrors.description}</FormMessage>}
+            {formErrors.description_uz && <FormMessage>{formErrors.description_uz}</FormMessage>}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="description_ru">
+              Description (Russian)<span className="text-destructive ml-1">*</span>
+            </Label>
+            <Textarea
+              id="description_ru"
+              value={newService.description_ru}
+              onChange={(e) => setNewService({ ...newService, description_ru: e.target.value })}
+              required
+            />
+            {formErrors.description_ru && <FormMessage>{formErrors.description_ru}</FormMessage>}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="description_en">
+              Description (English)<span className="text-destructive ml-1">*</span>
+            </Label>
+            <Textarea
+              id="description_en"
+              value={newService.description_en}
+              onChange={(e) => setNewService({ ...newService, description_en: e.target.value })}
+              required
+            />
+            {formErrors.description_en && <FormMessage>{formErrors.description_en}</FormMessage>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -985,7 +1088,7 @@ export default function ServicePage() {
                 <SelectContent>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id.toString()}>
-                      {category.name}
+                      {category.name_en}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -994,16 +1097,42 @@ export default function ServicePage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">
-                Name<span className="text-destructive ml-1">*</span>
+              <Label htmlFor="edit-name_uz">
+                Name (Uzbek)<span className="text-destructive ml-1">*</span>
               </Label>
               <Input
-                id="edit-name"
-                value={editService.name}
-                onChange={(e) => setEditService({ ...editService, name: e.target.value })}
+                id="edit-name_uz"
+                value={editService.name_uz}
+                onChange={(e) => setEditService({ ...editService, name_uz: e.target.value })}
                 required
               />
-              {editFormErrors.name && <FormMessage>{editFormErrors.name}</FormMessage>}
+              {editFormErrors.name_uz && <FormMessage>{editFormErrors.name_uz}</FormMessage>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name_ru">
+                Name (Russian)<span className="text-destructive ml-1">*</span>
+              </Label>
+              <Input
+                id="edit-name_ru"
+                value={editService.name_ru}
+                onChange={(e) => setEditService({ ...editService, name_ru: e.target.value })}
+                required
+              />
+              {editFormErrors.name_ru && <FormMessage>{editFormErrors.name_ru}</FormMessage>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name_en">
+                Name (English)<span className="text-destructive ml-1">*</span>
+              </Label>
+              <Input
+                id="edit-name_en"
+                value={editService.name_en}
+                onChange={(e) => setEditService({ ...editService, name_en: e.target.value })}
+                required
+              />
+              {editFormErrors.name_en && <FormMessage>{editFormErrors.name_en}</FormMessage>}
             </div>
 
             <DurationInput
@@ -1015,16 +1144,42 @@ export default function ServicePage() {
             />
 
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">
-                Description<span className="text-destructive ml-1">*</span>
+              <Label htmlFor="edit-description_uz">
+                Description (Uzbek)<span className="text-destructive ml-1">*</span>
               </Label>
               <Textarea
-                id="edit-description"
-                value={editService.description}
-                onChange={(e) => setEditService({ ...editService, description: e.target.value })}
+                id="edit-description_uz"
+                value={editService.description_uz}
+                onChange={(e) => setEditService({ ...editService, description_uz: e.target.value })}
                 required
               />
-              {editFormErrors.description && <FormMessage>{editFormErrors.description}</FormMessage>}
+              {editFormErrors.description_uz && <FormMessage>{editFormErrors.description_uz}</FormMessage>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description_ru">
+                Description (Russian)<span className="text-destructive ml-1">*</span>
+              </Label>
+              <Textarea
+                id="edit-description_ru"
+                value={editService.description_ru}
+                onChange={(e) => setEditService({ ...editService, description_ru: e.target.value })}
+                required
+              />
+              {editFormErrors.description_ru && <FormMessage>{editFormErrors.description_ru}</FormMessage>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description_en">
+                Description (English)<span className="text-destructive ml-1">*</span>
+              </Label>
+              <Textarea
+                id="edit-description_en"
+                value={editService.description_en}
+                onChange={(e) => setEditService({ ...editService, description_en: e.target.value })}
+                required
+              />
+              {editFormErrors.description_en && <FormMessage>{editFormErrors.description_en}</FormMessage>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1123,7 +1278,6 @@ export default function ServicePage() {
 
       {/* Delete Confirmation Dialog */}
       <Modal
-      children={null}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Service"
